@@ -162,10 +162,13 @@ app.post('/api/shipments', async (req, res) => {
     const { rows } = await db.query('SELECT MAX(seq) AS m FROM shipments WHERE date=?', [b.date]);
     seq = (rows[0].m || 0) + 1;
   }
+  // 旧表 NOT NULL 列：date, destination, size, qty
+  const size = (b.qty_big || 0) >= (b.qty_small || 0) ? 'big' : 'small';
+  const qty = (b.qty_big || 0) + (b.qty_small || 0);
   const params = [
     b.date, seq,
     b.sender || null, b.contact_name || null, b.contact_phone || null,
-    b.address,
+    b.address, b.address, size, qty,
     b.qty_big || 0, b.qty_small || 0,
     b.target_big || 0, b.target_small || 0,
     b.order_no || null,
@@ -174,15 +177,15 @@ app.post('/api/shipments', async (req, res) => {
   let newId;
   if (DB_TYPE === 'postgres') {
     const { rows } = await db.query(
-      `INSERT INTO shipments (date,seq,sender,contact_name,contact_phone,address,
+      `INSERT INTO shipments (date,seq,sender,contact_name,contact_phone,address,destination,size,qty,
        qty_big,qty_small,target_big,target_small,order_no,tracking_no,stock,spec,note)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`, params);
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`, params);
     newId = rows[0].id;
   } else {
     const res2 = await db.query(
-      `INSERT INTO shipments (date,seq,sender,contact_name,contact_phone,address,
+      `INSERT INTO shipments (date,seq,sender,contact_name,contact_phone,address,destination,size,qty,
        qty_big,qty_small,target_big,target_small,order_no,tracking_no,stock,spec,note)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, params);
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, params);
     newId = res2.insertId;
   }
   const { rows } = await db.query('SELECT * FROM shipments WHERE id=?', [newId]);
@@ -193,13 +196,15 @@ app.post('/api/shipments', async (req, res) => {
 
 app.put('/api/shipments/:id', async (req, res) => {
   const b = req.body;
+  const size = (b.qty_big || 0) >= (b.qty_small || 0) ? 'big' : 'small';
+  const qty = (b.qty_big || 0) + (b.qty_small || 0);
   await db.query(`UPDATE shipments SET
-    date=?, seq=?, sender=?, contact_name=?, contact_phone=?, address=?,
+    date=?, seq=?, sender=?, contact_name=?, contact_phone=?, address=?, destination=?, size=?, qty=?,
     qty_big=?, qty_small=?, target_big=?, target_small=?, order_no=?,
     tracking_no=?, stock=?, spec=?, note=?, updated_at=CURRENT_TIMESTAMP
     WHERE id=?`, [
     b.date, b.seq || null, b.sender || null, b.contact_name || null,
-    b.contact_phone || null, b.address,
+    b.contact_phone || null, b.address, b.address, size, qty,
     b.qty_big || 0, b.qty_small || 0,
     b.target_big || 0, b.target_small || 0,
     b.order_no || null,
