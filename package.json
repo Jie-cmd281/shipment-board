@@ -1,0 +1,22 @@
+{
+  "name": "shipment-board",
+  "version": "1.0.0",
+  "description": "发货统计实时看板 - 多人协同",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^13.2.0",
+    "express": "^5.3.0",
+    "pg": "^8.23.1",
+    "socket.io": "^4.8.4"
+  }
+}

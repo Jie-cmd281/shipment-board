@@ -1,0 +1,7 @@
+node_modules/
+shipments.db
+shipments.db-journal
+service.log
+backups/
+.env
+.DS_Store

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>发货统计表</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #fff; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-size: 13px; color: #1f2937;
+    padding-top: 59px; /* 给固定顶栏留空 */
+  }
+  * { box-sizing: border-box; }
+
+  /* ===== 顶栏 ===== */
+  .hdr {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%);
+    color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .hdr h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 2px; }
+  .hdr .live { font-size: 12px; color: #a7f3d0; display: flex; align-items: center; gap: 6px; }
+  .hdr .live .dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block; box-shadow: 0 0 6px #34d399; }
+  .hdr button {
+    padding: 6px 14px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px; font-size: 12px; cursor: pointer; backdrop-filter: blur(4px);
+  }
+  .hdr button:hover { background: rgba(255,255,255,0.25); }
+
+  /* ===== 快速录入栏（卡片式） ===== */
+  .quick {
+    padding: 16px 24px 12px; background: #fff;
+  }
+  .quick-title {
+    display: block;
+    font-size: 13px; font-weight: 600; color: #6b7280;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+  }
+  .quick-title::before {
+    content: ''; width: 3px; height: 14px; background: #0f766e; border-radius: 2px;
+  }
+  .quick form {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr) auto;
+    gap: 10px; align-items: end;
+  }
+  .quick .qf { display: flex; flex-direction: column; gap: 4px; }
+  .quick label {
+    font-size: 11px; color: #9ca3af; font-weight: 500;
+  }
+  .quick input, .quick select {
+    padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
+    font-size: 13px; background: #fafafa; outline: none;
+    transition: all 0.15s;
+  }
+  .quick input:focus {
+    border-color: #0f766e; background: #fff;
+    box-shadow: 0 0 0 3px rgba(15,118,110,0.1);
+  }
+  .quick button {
+    padding: 8px 20px; background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+    color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; height: 36px; white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(15,118,110,0.3);
+    transition: all 0.15s;
+  }
+  .quick button:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15,118,110,0.4); }
+
+  @media (max-width: 1400px) {
+    .quick form { grid-template-columns: repeat(4, 1fr) auto; }
+  }
+  @media (max-width: 900px) {
+    .quick form { grid-template-columns: repeat(2, 1fr); }
+    .quick form > button { grid-column: 1 / -1; }
+  }
+
+  /* ===== 筛选栏 ===== */
+  .filter-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 24px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+    flex-wrap: wrap;
+  }
+  .filter-bar input[type="text"], .filter-bar select, .filter-bar input[type="date"] {
+    padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px;
+    font-size: 12px; background: #fff; outline: none; height: 30px;
+  }
+  .filter-bar input[type="text"] { width: 260px; }
+  .filter-bar select { width: 130px; }
+  .filter-bar input[type="date"] { width: 130px; }
+  .filter-bar input:focus, .filter-bar select:focus {
+    border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,0.1);
+  }
+  .filter-bar button {
+    padding: 6px 14px; border: 1px solid #e2e8f0; border-radius: 4px;
+    background: #fff; font-size: 12px; color: #475569; cursor: pointer; height: 30px;
+  }
+  .filter-bar button:hover { background: #f1f5f9; }
+  .filter-bar .fHint { font-size: 12px; color: #94a3b8; margin-left: auto; }
+
+  /* ===== 表格 ===== */
+  .table-wrap {
+    padding: 0 24px 60px;
+    background: #fff;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%; min-width: 1400px; border-collapse: separate; border-spacing: 0;
+    background: #fff;
+  }
+  thead th {
+    position: sticky; top: 0; z-index: 10;
+    background: #f8fafc; padding: 10px 12px; font-size: 12px;
+    color: #64748b; font-weight: 600; text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap; letter-spacing: 0.3px;
+  }
+  tbody td {
+    padding: 10px 12px; font-size: 13px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle; white-space: nowrap;
+    color: #334155;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* 状态行颜色 */
+  tbody tr.done td { background: #f0fdf4; }
+  tbody tr.pending td { background: #fefce8; }
+  tbody tr.partial td { background: #fff7ed; }
+  tbody tr:hover td { filter: brightness(0.97); }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;
+  }
+  .tag.done { background: #dcfce7; color: #16a34a; }
+  .tag.pending { background: #fef9c3; color: #ca8a04; }
+  .tag.partial { background: #fed7aa; color: #ea580c; }
+  .tag.none { background: #f1f5f9; color: #94a3b8; }
+
+  /* 日期分组 */
+  .date-group td {
+    background: #f8fafc; font-weight: 600; color: #475569;
+    border-top: 1px solid #e2e8f0;
+    font-size: 12px; padding: 8px 12px;
+  }
+
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  td.addr { white-space: normal; max-width: 260px; line-height: 1.4; }
+  td.action { white-space: nowrap; }
+  td.action button {
+    background: none; border: none; cursor: pointer; font-size: 12px;
+    color: #94a3b8; padding: 4px 8px; border-radius: 4px;
+    transition: all 0.15s;
+  }
+  td.action button:first-child:hover { background: #eff6ff; color: #2563eb; }
+  td.action button:last-child:hover { background: #fee2e2; color: #dc2626; }
+
+  .empty {
+    text-align: center; padding: 80px 20px; color: #cbd5e1; font-size: 13px;
+  }
+
+  /* 底部汇总条 */
+  .summary {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #fff; border-top: 1px solid #e5e7eb;
+    padding: 12px 24px; font-size: 13px; z-index: 15;
+    display: flex; gap: 28px; align-items: center; color: #475569;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+  }
+  .summary .v { font-weight: 700; color: #1e293b; font-size: 14px; }
+  .summary .sep { width: 1px; height: 18px; background: #e5e7eb; }
+
+  /* ===== 编辑弹窗 ===== */
+  .ov {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.5);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+    backdrop-filter: blur(4px);
+  }
+  .ov.show { display: flex; }
+  .md {
+    background: #fff; border-radius: 12px; padding: 24px; width: 560px; max-width: 94vw;
+    max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .md h3 { margin: 0 0 18px; font-size: 15px; font-weight: 600; color: #1e293b; }
+  .md .g { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .md .g3 { grid-template-columns: 1fr 1fr 1fr; }
+  .md .g4 { grid-template-columns: repeat(4, 1fr); }
+  .md label { font-size: 12px; color: #6b7280; display: block; margin-bottom: 4px; font-weight: 500; }
+  .md input, .md select {
+    width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
+    font-size: 13px; background: #fafafa; outline: none; transition: all 0.15s;
+  }
+  .md input:focus { border-color: #0f766e; background: #fff; box-shadow: 0 0 0 3px rgba(15,118,110,0.1); }
+  .md .btns { display: flex; gap: 8px; margin-top: 18px; }
+  .md button { flex: 1; padding: 9px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; }
+  .md .ok { background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%); color: #fff; }
+  .md .ok:hover { filter: brightness(1.05); }
+  .md .can { background: #f1f5f9; color: #475569; }
+  .md .can:hover { background: #e2e8f0; }
+  .md .del { background: #fef2f2; color: #dc2626; }
+  .md .del:hover { background: #fee2e2; }
+
+  /* toast */
+  .tt {
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-10px);
+    background: #1e293b; color: #fff; padding: 6px 14px; border-radius: 6px;
+    font-size: 14px; font-weight: 600; opacity: 0; transition: all 0.2s; z-index: 60; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .tt.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>发货统计表</h1>
+  <div style="display:flex;gap:14px;align-items:center">
+    <a href="/api/export.csv" download style="text-decoration:none;padding:7px 14px;background:#111827;color:#fff;border-radius:5px;font-size:13px">⬇ 导出 Excel</a>
+    <span class="live"><span class="dot"></span><span id="st">连接中...</span></span>
+  </div>
+</div>
+
+<div class="quick">
+  <div class="quick-title">快速录入发货</div>
+  <form id="f">
+    <div class="qf"><label>日期</label><input type="date" id="d" required></div>
+    <div class="qf"><label>发货人</label><input type="text" id="sender" placeholder="姓名"></div>
+    <div class="qf"><label>联系人</label><input type="text" id="cname" placeholder="收货人"></div>
+    <div class="qf"><label>联系电话</label><input type="text" id="cphone" placeholder="手机号"></div>
+    <div class="qf" style="grid-column: span 2"><label>收货地址</label><input type="text" id="addr" placeholder="省市区详细地址" required></div>
+    <div class="qf"><label>订单号</label><input type="text" id="ono" placeholder="同号才合并"></div>
+    <div class="qf"><label>已发大件</label><input type="number" id="qb" min="0" value="0" placeholder="0"></div>
+    <div class="qf"><label>已发小件</label><input type="number" id="qs" min="0" value="0" placeholder="0"></div>
+    <div class="qf"><label>目标大件</label><input type="number" id="tb" min="0" placeholder="总数"></div>
+    <div class="qf"><label>目标小件</label><input type="number" id="ts" min="0" placeholder="总数"></div>
+    <div class="qf"><label>物流单号</label><input type="text" id="tr" placeholder="顺丰/京东"></div>
+    <div class="qf"><label>存货</label><input type="text" id="stock" placeholder="仓库"></div>
+    <div class="qf"><label>规格</label><input type="text" id="spec" placeholder="规格"></div>
+    <button type="submit">＋ 添加</button>
+  </form>
+</div>
+
+<div class="filter-bar">
+  <input type="text" id="fKw" placeholder="🔍 搜索：地址/联系人/电话/物流/发货人" />
+  <select id="fState">
+    <option value="">全部状态</option>
+    <option value="done">✓ 已发完</option>
+    <option value="partial">⏳ 进行中</option>
+    <option value="pending">待发货</option>
+    <option value="none">未填目标</option>
+  </select>
+  <input type="date" id="fFrom" title="起始日期" />
+  <span style="color:#9ca3af">~</span>
+  <input type="date" id="fTo" title="结束日期" />
+  <button id="fClear" type="button">清除</button>
+  <span class="fHint" id="fHint"></span>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:90px">日期</th>
+        <th style="width:50px">序号</th>
+        <th style="width:80px">发货人</th>
+        <th style="width:90px">订单号</th>
+        <th style="width:80px">联系人</th>
+        <th style="width:110px">联系电话</th>
+        <th>收货地址</th>
+        <th style="width:60px;text-align:right">已发大件</th>
+        <th style="width:60px;text-align:right">已发小件</th>
+        <th style="width:60px;text-align:right">目标大件</th>
+        <th style="width:60px;text-align:right">目标小件</th>
+        <th style="width:90px;text-align:center">状态</th>
+        <th style="width:150px">物流单号</th>
+        <th style="width:120px">存货</th>
+        <th style="width:100px">规格</th>
+        <th style="width:100px">备注</th>
+        <th style="width:90px"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="emp" style="display:none">还没有发货记录，在上面填一条吧</div>
+</div>
+
+<div class="summary" id="sum">
+  <span>共 <span class="v" id="sc">0</span> 条</span>
+  <span>大件 <span class="v" id="sb">0</span> 件</span>
+  <span>小件 <span class="v" id="ss">0</span> 件</span>
+  <span>总计 <span class="v" id="stotal">0</span> 件</span>
+  <span style="color:#22c55e">✓ 已完成 <span class="v" id="sdone" style="color:#22c55e">0</span></span>
+  <span style="color:#eab308">⏳ 未完成 <span class="v" id="spending" style="color:#eab308">0</span></span>
+</div>
+
+<!-- 编辑弹窗 -->
+<div class="ov" id="m">
+  <div class="md">
+    <h3>编辑发货记录</h3>
+    <div class="g g4">
+      <div><label>日期</label><input type="date" id="ed"></div>
+      <div><label>序号</label><input type="number" id="eseq" min="1"></div>
+      <div><label>发货人</label><input type="text" id="esender"></div>
+      <div><label>联系人</label><input type="text" id="ecname"></div>
+    </div>
+    <div class="g g3">
+      <div><label>联系电话</label><input type="text" id="ecphone"></div>
+      <div><label>大件数量</label><input type="number" id="eqb" min="0"></div>
+      <div><label>小件数量</label><input type="number" id="eqs" min="0"></div>
+    </div>
+    <div><label>收货地址</label><input type="text" id="eaddr"></div>
+    <div><label>订单号（填了才跟同号的合并）</label><input type="text" id="eono" placeholder="不填 = 每行独立计算"></div>
+    <div class="g g2">
+      <div><label>目标大件</label><input type="number" id="etb" min="0" placeholder="同订单只填一次"></div>
+      <div><label>目标小件</label><input type="number" id="ets" min="0"></div>
+    </div>
+    <div class="g g3">
+      <div><label>物流单号</label><input type="text" id="etr"></div>
+      <div><label>存货</label><input type="text" id="estock"></div>
+      <div><label>规格</label><input type="text" id="espec"></div>
+    </div>
+    <div><label>备注</label><input type="text" id="enote"></div>
+    <div class="btns">
+      <button class="del" id="eDel">删除</button>
+      <button class="can" id="eCan">取消</button>
+      <button class="ok" id="eOk">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="tt" id="tt">ok</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let rows = [], eid = null;
+
+socket.on('connect', () => { document.getElementById('st').textContent = '实时已连接'; });
+socket.on('disconnect', () => { document.getElementById('st').textContent = '已断开'; });
+socket.on('shipment:create', refresh);
+socket.on('shipment:update', refresh);
+socket.on('shipment:delete', refresh);
+
+function today() { return new Date().toISOString().slice(0,10); }
+function fmtDate(s) {
+  // 2026-11-16 → 11.16
+  if (!s) return '';
+  const d = new Date(s);
+  return (d.getMonth()+1) + '.' + d.getDate();
+}
+
+async function refresh() {
+  rows = await (await fetch('/api/shipments')).json();
+  render();
+}
+
+function render() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  // ===== 筛选 =====
+  const kw = (document.getElementById('fKw').value || '').trim().toLowerCase();
+  const st = document.getElementById('fState').value;
+  const from = document.getElementById('fFrom').value;
+  const to = document.getElementById('fTo').value;
+
+  let filtered = rows.filter(r => {
+    if (from && r.date < from) return false;
+    if (to && r.date > to) return false;
+    if (kw) {
+      const hay = [r.sender, r.contact_name, r.contact_phone, r.address, r.order_no, r.tracking_no, r.stock, r.spec, r.note]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+
+  // ===== 聚合：有 order_no 才合并，没 order_no 每行独立 =====
+  const orders = {};
+  for (const r of filtered) {
+    const key = r.order_no
+      ? (r.date + '|ONO|' + r.order_no)
+      : (r.date + '|ROW|' + r.id);
+    if (!orders[key]) {
+      orders[key] = { date: r.date, address: r.address, rows: [],
+        sentBig: 0, sentSmall: 0, targetBig: 0, targetSmall: 0,
+        order_no: r.order_no || '' };
+    }
+    orders[key].rows.push(r);
+    orders[key].sentBig += r.qty_big || 0;
+    orders[key].sentSmall += r.qty_small || 0;
+    if (r.target_big > 0 && orders[key].targetBig === 0) orders[key].targetBig = r.target_big;
+    if (r.target_small > 0 && orders[key].targetSmall === 0) orders[key].targetSmall = r.target_small;
+  }
+
+  // ===== 计算状态 + 按状态筛选 =====
+  for (const key in orders) {
+    const o = orders[key];
+    const tB = o.targetBig, tS = o.targetSmall;
+    const sB = o.sentBig, sS = o.sentSmall;
+    const hasT = (tB > 0 || tS > 0);
+    let state = 'none';
+    if (!hasT) state = 'none';
+    else if ((tB === 0 || tB <= sB) && (tS === 0 || tS <= sS)) state = 'done';
+    else if (sB > 0 || sS > 0) state = 'partial';
+    else state = 'pending';
+    o.state = state;
+  }
+  if (st) {
+    for (const key in orders) {
+      if (orders[key].state !== st) delete orders[key];
+    }
+  }
+
+  // ===== 第二步：按日期分组显示 =====
+  const byDate = {};
+  for (const key in orders) {
+    const d = orders[key].date;
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(orders[key]);
+  }
+  const sortedDates = Object.keys(byDate).sort((a,b) => b.localeCompare(a));
+
+  let totalBig = 0, totalSmall = 0;
+  let doneCount = 0, pendingCount = 0;
+
+  for (const d of sortedDates) {
+    const orderList = byDate[d];
+    // 日期分组标题行
+    const grp = document.createElement('tr');
+    grp.className = 'date-group';
+    const rowCount = orderList.reduce((s, o) => s + o.rows.length, 0);
+    grp.innerHTML = `<td colspan="17">📅 ${d}　共 ${orderList.length} 个订单 / ${rowCount} 条发货</td>`;
+    tbody.appendChild(grp);
+
+    for (const ord of orderList) {
+      // ===== 状态 =====
+      const tBig = ord.targetBig, tSmall = ord.targetSmall;
+      const sBig = ord.sentBig, sSmall = ord.sentSmall;
+      const state = ord.state;
+      let stateHtml = '';
+      let remBig = Math.max(0, tBig - sBig), remSmall = Math.max(0, tSmall - sSmall);
+
+      if (state === 'none') {
+        stateHtml = `<span class="tag none">未填目标</span>`;
+      } else if (state === 'done') {
+        stateHtml = `<span class="tag done">✓ 已发完</span>`;
+        doneCount++;
+      } else if (state === 'partial') {
+        stateHtml = `<span class="tag partial">⏳ 剩大${remBig} 小${remSmall}</span>`;
+        pendingCount++;
+      } else {
+        stateHtml = `<span class="tag pending">待发货</span>`;
+        pendingCount++;
+      }
+
+      // 订单内的每条发货记录
+      ord.rows.sort((a,b) => (a.seq || 0) - (b.seq || 0));
+      for (const r of ord.rows) {
+        const big = r.qty_big || 0, small = r.qty_small || 0;
+        totalBig += big; totalSmall += small;
+
+        const tr = document.createElement('tr');
+        tr.className = state !== 'none' ? state : '';
+        tr.innerHTML = `
+          <td>${fmtDate(r.date)}</td>
+          <td>${r.seq || ''}</td>
+          <td>${r.sender || ''}</td>
+          <td style="font-size:12px;color:#6b7280">${r.order_no || ''}</td>
+          <td>${r.contact_name || ''}</td>
+          <td style="font-family:monospace">${r.contact_phone || ''}</td>
+          <td class="addr">${r.address}</td>
+          <td style="font-size:12px;color:#6b7280">${r.order_no || ''}</td>
+          <td class="num">${big || ''}</td>
+          <td class="num">${small || ''}</td>
+          <td class="num">${tBig || ''}</td>
+          <td class="num">${tSmall || ''}</td>
+          <td style="text-align:center">${stateHtml}</td>
+          <td style="font-family:monospace">${r.tracking_no || ''}</td>
+          <td>${r.stock || ''}</td>
+          <td>${r.spec || ''}</td>
+          <td style="color:#6b7280;font-size:12px">${r.note || ''}</td>
+          <td class="action">
+            <button data-id="${r.id}" class="eb">编辑</button>
+            <button data-id="${r.id}" class="dl">删除</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+  }
+
+  tbody.querySelectorAll('.eb').forEach(b => b.onclick = () => openEdit(+b.dataset.id));
+  tbody.querySelectorAll('.dl').forEach(b => b.onclick = async () => {
+    if (!confirm('删除这条？')) return;
+    await fetch('/api/shipments/'+b.dataset.id, {method:'DELETE'});
+    refresh(); toast('✓');
+  });
+
+  const hasFilter = kw || st || from || to;
+  document.getElementById('emp').style.display = filtered.length ? 'none' : 'block';
+  document.getElementById('sc').textContent = filtered.length;
+  document.getElementById('sb').textContent = totalBig;
+  document.getElementById('ss').textContent = totalSmall;
+  document.getElementById('stotal').textContent = totalBig + totalSmall;
+  document.getElementById('sdone').textContent = doneCount;
+  document.getElementById('spending').textContent = pendingCount;
+  document.getElementById('fHint').textContent = hasFilter ? `筛选中：${filtered.length} / ${rows.length} 条` : '';
+}
+
+// ===== 快速录入 =====
+document.getElementById('d').value = today();
+document.getElementById('f').onsubmit = async (e) => {
+  e.preventDefault();
+  const body = {
+    date: document.getElementById('d').value,
+    sender: document.getElementById('sender').value.trim() || null,
+    contact_name: document.getElementById('cname').value.trim() || null,
+    contact_phone: document.getElementById('cphone').value.trim() || null,
+    address: document.getElementById('addr').value.trim(),
+    order_no: document.getElementById('ono').value.trim() || null,
+    qty_big: +document.getElementById('qb').value || 0,
+    qty_small: +document.getElementById('qs').value || 0,
+    target_big: +document.getElementById('tb').value || 0,
+    target_small: +document.getElementById('ts').value || 0,
+    tracking_no: document.getElementById('tr').value.trim() || null,
+    stock: document.getElementById('stock').value.trim() || null,
+    spec: document.getElementById('spec').value.trim() || null,
+  };
+  await fetch('/api/shipments', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  document.getElementById('addr').value = '';
+  document.getElementById('ono').value = '';
+  document.getElementById('sender').value = '';
+  document.getElementById('cname').value = '';
+  document.getElementById('cphone').value = '';
+  document.getElementById('qb').value = 0;
+  document.getElementById('qs').value = 0;
+  document.getElementById('tb').value = '';
+  document.getElementById('ts').value = '';
+  document.getElementById('tr').value = '';
+  document.getElementById('stock').value = '';
+  document.getElementById('spec').value = '';
+  refresh(); toast('✓');
+};
+
+// ===== 编辑 =====
+function openEdit(id) {
+  const r = rows.find(x => x.id === id); if (!r) return;
+  eid = id;
+  document.getElementById('ed').value = r.date;
+  document.getElementById('eseq').value = r.seq || '';
+  document.getElementById('esender').value = r.sender || '';
+  document.getElementById('ecname').value = r.contact_name || '';
+  document.getElementById('ecphone').value = r.contact_phone || '';
+  document.getElementById('eaddr').value = r.address;
+  document.getElementById('eono').value = r.order_no || '';
+  document.getElementById('eqb').value = r.qty_big || 0;
+  document.getElementById('eqs').value = r.qty_small || 0;
+  document.getElementById('etb').value = r.target_big || '';
+  document.getElementById('ets').value = r.target_small || '';
+  document.getElementById('etr').value = r.tracking_no || '';
+  document.getElementById('estock').value = r.stock || '';
+  document.getElementById('espec').value = r.spec || '';
+  document.getElementById('enote').value = r.note || '';
+  document.getElementById('m').classList.add('show');
+}
+document.getElementById('eOk').onclick = async () => {
+  if (!eid) return;
+  const body = {
+    date: document.getElementById('ed').value,
+    seq: document.getElementById('eseq').value ? +document.getElementById('eseq').value : null,
+    sender: document.getElementById('esender').value.trim() || null,
+    contact_name: document.getElementById('ecname').value.trim() || null,
+    contact_phone: document.getElementById('ecphone').value.trim() || null,
+    address: document.getElementById('eaddr').value.trim(),
+    order_no: document.getElementById('eono').value.trim() || null,
+    qty_big: +document.getElementById('eqb').value || 0,
+    qty_small: +document.getElementById('eqs').value || 0,
+    target_big: +document.getElementById('etb').value || 0,
+    target_small: +document.getElementById('ets').value || 0,
+    tracking_no: document.getElementById('etr').value.trim() || null,
+    stock: document.getElementById('estock').value.trim() || null,
+    spec: document.getElementById('espec').value.trim() || null,
+    note: document.getElementById('enote').value.trim() || null,
+  };
+  await fetch('/api/shipments/'+eid, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  document.getElementById('m').classList.remove('show');
+  eid = null; refresh(); toast('✓');
+};
+document.getElementById('eDel').onclick = async () => {
+  if (!eid || !confirm('删除这条？')) return;
+  await fetch('/api/shipments/'+eid, {method:'DELETE'});
+  document.getElementById('m').classList.remove('show');
+  eid = null; refresh(); toast('✓');
+};
+document.getElementById('eCan').onclick = () => { document.getElementById('m').classList.remove('show'); eid = null; };
+
+function toast(m) {
+  const t = document.getElementById('tt'); t.textContent = m;
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 700);
+}
+
+// ===== 筛选事件 =====
+['fKw', 'fState', 'fFrom', 'fTo'].forEach(id => {
+  document.getElementById(id).addEventListener('input', render);
+  document.getElementById(id).addEventListener('change', render);
+});
+document.getElementById('fClear').onclick = () => {
+  document.getElementById('fKw').value = '';
+  document.getElementById('fState').value = '';
+  document.getElementById('fFrom').value = '';
+  document.getElementById('fTo').value = '';
+  render();
+};
+
+refresh();
+</script>
+</body>
+</html>
